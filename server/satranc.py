@@ -559,11 +559,12 @@ const SOUNDS = ['wood', 'glass', 'synth', 'soft', 'off'];
 const ANIM = [0, .13, .26, .5];
 const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const DEF = { lang: 'auto', board: 'wood', piece: 'classic', sound: 'wood', volume: .7, bg: 'auto', anim: reduce ? 0 : 2,
-  coords: true, legal: true, hl: true, premoveHighlights: true, autoq: false, vib: true, level: 3, tc: '0', side: 'w', mode: 'ai' };
+  coords: true, legal: true, hl: true, premoveHighlights: true, multiPremoves: false, autoq: false, vib: true, level: 3, tc: '0', side: 'w', mode: 'ai' };
 const S = Object.assign({}, DEF, store.get('satranc.v2', {}));
 if (!BOARDS.some(b => b.id === S.board)) S.board = DEF.board;
 if (!PIECES.includes(S.piece)) S.piece = DEF.piece;
 if (!SOUNDS.includes(S.sound)) S.sound = DEF.sound;
+S.multiPremoves = S.multiPremoves === true;
 S.volume = clamp(+S.volume || 0, 0, 1); S.anim = clamp(S.anim | 0, 0, 3); S.level = clamp(S.level | 0, 1, 5);
 const save = () => store.set('satranc.v2', S);
 
@@ -1996,7 +1997,9 @@ function isPremoveTurn() {
   return G.mode === 'online' && G.net && G.net.both && !G.over && !G.spectator &&
     live() && !G.busy && G.st.t !== G.me;
 }
-function canQueuePremove() { return isPremoveTurn() && G.premoves.length < MAX_PREMOVES; }
+function premoveLimit() { return S.multiPremoves ? MAX_PREMOVES : 1; }
+function premoveLimitText() { return t(S.multiPremoves ? 'premoveLimit' : 'premoveLimitSingle'); }
+function canQueuePremove() { return isPremoveTurn() && G.premoves.length < premoveLimit(); }
 function canInteract() { return canMove() || canQueuePremove(); }
 function premoveState() {
   let st = Object.assign({}, G.st, { t: G.me, ep: -1 });
@@ -2606,7 +2609,7 @@ function askPromo(color) {
 }
 async function userMove(from, to) {
   if (isPremoveTurn()) {
-    if (!canQueuePremove()) { toast(t('premoveLimit')); return false; }
+    if (!canQueuePremove()) { toast(premoveLimitText()); return false; }
     const st = premoveState(), ms = Chess.legal(st).filter(m => (m & 63) === from && ((m >> 6) & 63) === to);
     if (!ms.length) { Snd.play('illegal'); return false; }
     const m = ms.find(x => !(x >> 12)) || ms.find(x => (x >> 12) === 5) || ms[0];
@@ -2637,7 +2640,7 @@ boardEl.addEventListener('pointerdown', e => {
   const i = sqAt(e); if (i < 0) return;
   if (G.ov.length) { G.ov = []; drawOv(); }
   if (!canInteract()) {
-    if (isPremoveTurn()) toast(t('premoveLimit'));
+    if (isPremoveTurn()) toast(premoveLimitText());
     if (G.mode === 'online' && G.net && !G.net.both && !G.spectator) toast(t('waitingOpp'));
     return;
   }
@@ -2916,11 +2919,20 @@ function settingsModal() {
         h('div', {}, h('h4', { text: t('setAnim') }), seg([[0, t('aOff')], [1, t('aFast')], [2, t('aNormal')], [3, t('aSlow')]], S.anim, v => { S.anim = v; save(); applyTheme(); })));
       const tg = (label, key) => {
         const b = h('button', { class: 'tg' + (S[key] ? ' on' : ''), role: 'switch', 'aria-checked': String(!!S[key]), 'aria-label': label,
-          onclick: () => { S[key] = !S[key]; b.classList.toggle('on', S[key]); b.setAttribute('aria-checked', String(S[key])); save(); applyTheme(); updateAll(); } });
+          onclick: () => {
+            S[key] = !S[key];
+            if (key === 'multiPremoves' && !S.multiPremoves && G.premoves.length > 1) {
+              G.premoves = G.premoves.slice(0, 1);
+              G.sel = null; G.tg = new Map();
+            }
+            b.classList.toggle('on', S[key]); b.setAttribute('aria-checked', String(S[key]));
+            save(); applyTheme(); updateAll();
+          } });
         return h('div', { class: 'row sp' }, h('span', { text: label }), b);
       };
       box.append(tg(t('coords'), 'coords'), tg(t('legalMoves'), 'legal'), tg(t('highlights'), 'hl'),
-        tg(t('premoveHighlights'), 'premoveHighlights'), tg(t('autoQueen'), 'autoq'), tg(t('vibration'), 'vib'));
+        tg(t('multiPremoves'), 'multiPremoves'), tg(t('premoveHighlights'), 'premoveHighlights'),
+        tg(t('autoQueen'), 'autoq'), tg(t('vibration'), 'vib'));
     };
     draw();
   });
@@ -3447,6 +3459,7 @@ window.I18N = {
     waitingOpp: 'Waiting for your opponent…', oppLeft: 'Opponent disconnected',
     queuedPremoves: 'Queued premoves', clearPremoves: 'Clear', premovesCleared: 'Premoves cleared',
     premoveInvalid: 'Premove is no longer legal; queue cleared', premoveLimit: 'You can queue up to 5 premoves',
+    premoveLimitSingle: 'You can queue only one premove', multiPremoves: 'Multiple premoves',
     toMove: '{c} to move', check: 'Check!', thinking: 'Computer is thinking…',
     youWon: 'You won!', youLost: 'You lost', drawn: 'Draw', whiteWins: 'White wins', blackWins: 'Black wins',
     w_checkmate: 'by checkmate', w_stalemate: 'stalemate', w_insufficient: 'insufficient material', w_fifty: '50-move rule',
@@ -3479,6 +3492,7 @@ window.I18N = {
     waitingOpp: 'Rakip bekleniyor…', oppLeft: 'Rakibin bağlantısı koptu',
     queuedPremoves: 'Ön hamle kuyruğu', clearPremoves: 'Temizle', premovesCleared: 'Ön hamleler temizlendi',
     premoveInvalid: 'Ön hamle artık geçerli değil; kuyruk temizlendi', premoveLimit: 'En fazla 5 ön hamle sıraya alınabilir',
+    premoveLimitSingle: 'Yalnızca bir ön hamle sıraya alabilirsin', multiPremoves: 'Çoklu ön hamle',
     toMove: 'Sıra: {c}', check: 'Şah!', thinking: 'Bilgisayar düşünüyor…',
     youWon: 'Kazandın!', youLost: 'Kaybettin', drawn: 'Berabere', whiteWins: 'Beyaz kazandı', blackWins: 'Siyah kazandı',
     w_checkmate: 'şah-mat', w_stalemate: 'pat', w_insufficient: 'yetersiz materyal', w_fifty: '50 hamle kuralı',
