@@ -13,6 +13,14 @@ Terminalde tek komutla başlatın:
 ```
 *(Gerekirse: `chmod +x satranc.sh`)*
 
+### 📱 Android
+
+GitHub Releases bölümündeki **`AbulChess.apk`** dosyasını indirip Android cihazınıza kurun. İlk açılışta, sunucuyu çalıştıran bilgisayardaki `Yerel ağ` adresini girin (ör. `http://192.168.1.10:8765`). İki cihaz da aynı Wi-Fi ağına bağlı olmalı ve bilgisayardaki güvenlik duvarı bu porta izin vermelidir. Bilgisayar sunucuyu çalıştırmaya devam eder; APK mevcut yerel ağdaki 2 oyunculu oda sistemine istemci olarak bağlanır.
+
+### ♟ Çoklu ön hamle
+
+Online oyunda rakibin sırası sırasında kendi taşlarınızla en fazla 5 hamleyi sıraya alabilirsiniz. Tahta sıradaki hamlelerin önizlemesini gösterir; sıra size geldiğinde ilk hamle otomatik oynanır. Rakibin hamlesi kuyruğun ilk hamlesini geçersiz kılarsa kuyruk iptal edilir.
+
 ### 🪟 Windows
 Klasör içerisindeki **`satranc.bat`** dosyasına **çift tıklayın**.
 
