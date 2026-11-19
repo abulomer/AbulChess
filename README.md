@@ -19,7 +19,7 @@ GitHub Releases bölümündeki **`AbulChess.apk`** dosyasını indirip Android c
 
 ### ♟ Çoklu ön hamle
 
-Online oyunda rakibin sırası sırasında kendi taşlarınızla en fazla 5 hamleyi sıraya alabilirsiniz. Tahta sıradaki hamlelerin önizlemesini gösterir; sıra size geldiğinde ilk hamle otomatik oynanır. Rakibin hamlesi kuyruğun ilk hamlesini geçersiz kılarsa kuyruk iptal edilir.
+Online oyunda rakibin sırası sırasında kendi taşlarınızla en fazla 5 hamleyi sıraya alabilirsiniz. Taşlar tahtadaki yerlerinde kalır; sıradaki hamlelerin kareleri tahta üzerinde renkle vurgulanır. Bu vurguyu Ayarlar'daki **Ön hamle karelerini vurgula** seçeneğinden kapatabilirsiniz. Sıra size geldiğinde ilk hamle otomatik oynanır. Rakibin hamlesi kuyruğun ilk hamlesini geçersiz kılarsa kuyruk iptal edilir.
 
 ### 🪟 Windows
 Klasör içerisindeki **`satranc.bat`** dosyasına **çift tıklayın**.

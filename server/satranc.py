@@ -420,7 +420,7 @@ button{cursor:pointer}
 .premove-title{font-weight:700}
 .premove-list{display:flex;gap:5px;flex:1;flex-wrap:wrap}
 .premove-chip{padding:3px 7px;border-radius:7px;background:rgba(255,255,255,.1);font-variant-numeric:tabular-nums}
-#board.premove-preview #pieces{opacity:.58}
+.sq.premove .hl{background:var(--premove-color);opacity:.72}
 .moves{position:relative;height:230px;overflow:auto;border-radius:12px;background:rgba(0,0,0,.16);padding:6px;scrollbar-width:thin}
 :root[data-mode=light] .moves{background:rgba(255,255,255,.5)}
 .mr{display:grid;grid-template-columns:34px 1fr 1fr;align-items:center;font-variant-numeric:tabular-nums}
@@ -559,7 +559,7 @@ const SOUNDS = ['wood', 'glass', 'synth', 'soft', 'off'];
 const ANIM = [0, .13, .26, .5];
 const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const DEF = { lang: 'auto', board: 'wood', piece: 'classic', sound: 'wood', volume: .7, bg: 'auto', anim: reduce ? 0 : 2,
-  coords: true, legal: true, hl: true, autoq: false, vib: true, level: 3, tc: '0', side: 'w', mode: 'ai' };
+  coords: true, legal: true, hl: true, premoveHighlights: true, autoq: false, vib: true, level: 3, tc: '0', side: 'w', mode: 'ai' };
 const S = Object.assign({}, DEF, store.get('satranc.v2', {}));
 if (!BOARDS.some(b => b.id === S.board)) S.board = DEF.board;
 if (!PIECES.includes(S.piece)) S.piece = DEF.piece;
@@ -2007,19 +2007,27 @@ function premoveState() {
   }
   return st;
 }
-function renderPremoveBoard() {
-  const wasPreview = boardEl.classList.contains('premove-preview');
-  const preview = isPremoveTurn() && G.premoves.length > 0;
-  boardEl.classList.toggle('premove-preview', preview);
-  if (preview) buildPieces(premoveState(), false);
-  else if (wasPreview) buildPieces(G.st, false);
-}
 function paint() {
-  const st = isPremoveTurn() && G.premoves.length ? premoveState() : cur();
+  const st = cur(), premoveSquares = new Map();
+  if (S.premoveHighlights && isPremoveTurn()) {
+    let projected = Object.assign({}, G.st, { t: G.me, ep: -1 });
+    const colors = ['#ffd666', '#81c784', '#64b5f6', '#ba68c8', '#ff8a65'];
+    for (let i = 0; i < G.premoves.length; i++) {
+      const m = Chess.fromUci(projected, G.premoves[i]);
+      if (m == null) break;
+      const from = m & 63, to = (m >> 6) & 63;
+      premoveSquares.set(from, colors[i % colors.length]);
+      premoveSquares.set(to, colors[i % colors.length]);
+      projected = Object.assign({}, Chess.make(projected, m), { t: G.me, ep: -1 });
+    }
+  }
   const last = G.vi > 0 ? G.moves[G.vi - 1] : null;
   const ck = Chess.inCheck(st.b, st.t) ? st.b.indexOf((st.t << 3) | 6) : -1, can = canInteract() && S.legal;
   for (let i = 0; i < 64; i++) {
     const c = sqEls[i].classList;
+    c.toggle('premove', premoveSquares.has(i));
+    if (premoveSquares.has(i)) sqEls[i].style.setProperty('--premove-color', premoveSquares.get(i));
+    else sqEls[i].style.removeProperty('--premove-color');
     c.toggle('last', !!(S.hl && last != null && (i === (last & 63) || i === ((last >> 6) & 63))));
     c.toggle('sel', G.sel === i && canInteract());
     c.toggle('tgt', !!(can && G.tg.has(i) && !G.tg.get(i)));
@@ -2198,7 +2206,6 @@ function renderPremoveQueue() {
 function clearPremoves(notify) {
   if (!G.premoves.length) return;
   G.premoves = []; G.sel = null; G.tg = new Map();
-  renderPremoveBoard();
   updateAll();
   if (notify !== false) toast(t('premovesCleared'));
 }
@@ -2304,7 +2311,6 @@ function resetGame(o) {
   Object.assign(G, { mode: o.mode, me: o.me || 0, spectator: !!o.spectator, level: o.level || S.level, flipped: !!o.flipped });
   G.st = Chess.startState(); G.states = [G.st]; G.moves = []; G.sans = []; G.keys = [Chess.posKey(G.st)];
   G.vi = 0; G.over = null; G.sel = null; G.tg = new Map(); G.ov = []; G.hint = null; G.drag = null; G.busy = false; G.premoves = [];
-  boardEl.classList.remove('premove-preview');
   setClock(o.tc); G.legalList = Chess.legal(G.st);
   layout(); buildPieces(G.st, true); updateAll();
   if (!o.quiet) Snd.play('start');
@@ -2322,10 +2328,7 @@ function playMove(m, o) {
   G.legalList = Chess.legal(after); G.sel = null; G.tg = new Map(); G.hint = null;
   if (wasLive) {
     G.vi = G.moves.length;
-    if (!o.silent) {
-      if (o.remote && G.premoves.length) buildPieces(after, false);
-      else animateMove(before, m);
-    }
+    if (!o.silent) animateMove(before, m);
   }
   if (!o.silent) {
     const chk = Chess.inCheck(after.b, after.t);
@@ -2419,8 +2422,6 @@ function playMove(m, o) {
 function endGame(res, why) {
   if (G.over) return;
   G.over = { res, why }; G.aiTok++; G.thinking = false; G.premoves = [];
-  boardEl.classList.remove('premove-preview');
-  buildPieces(G.st, false);
   const win = res === '1/2-1/2' ? 0 : (G.mode === 'local' || G.spectator) ? 2 : ((res === '1-0') === (G.me === 0) ? 1 : -1);
   BotChat.onOver(win === 1, win === 0);
   setTimeout(() => Snd.play(win === 1 || win === 2 ? 'win' : win === -1 ? 'lose' : 'draw'), why === 'checkmate' ? 450 : 0);
@@ -2611,7 +2612,6 @@ async function userMove(from, to) {
     const m = ms.find(x => !(x >> 12)) || ms.find(x => (x >> 12) === 5) || ms[0];
     G.premoves.push(Chess.toUci(m));
     G.sel = null; G.tg = new Map();
-    renderPremoveBoard();
     updateAll();
     return true;
   }
@@ -2646,7 +2646,7 @@ boardEl.addEventListener('pointerdown', e => {
   const p = inputSt.b[i], sideToMove = inputSt.t;
   if (p && (p >> 3) === sideToMove) {
     const was = G.sel === i; if (!was) select(i);
-    G.drag = { i, el: pieceEls.get(i), x: e.clientX, y: e.clientY, moved: false, was };
+    G.drag = { i, el: isPremoveTurn() && G.premoves.length ? null : pieceEls.get(i), x: e.clientX, y: e.clientY, moved: false, was };
     try { boardEl.setPointerCapture(e.pointerId); } catch (err) {}
   } else if (G.sel != null) { G.sel = null; G.tg = new Map(); paint(); }
 });
@@ -2665,7 +2665,10 @@ function endDrag(e, cancel) {
   for (const q of sqEls) q.classList.remove('hov');
   if (d.moved) {
     const to = cancel ? -1 : sqAt(e);
-    if (to >= 0 && G.tg.has(to)) userMove(d.i, to).then(ok => { if (!ok && d.el) place(d.el, d.i); });
+    if (to >= 0 && G.tg.has(to)) {
+      const queuingPremove = isPremoveTurn();
+      userMove(d.i, to).then(ok => { if ((!ok || queuingPremove) && d.el) place(d.el, d.i); });
+    }
     else { if (d.el) place(d.el, d.i); if (!cancel && to >= 0 && to !== d.i) Snd.play('illegal'); }
   } else if (d.was) { G.sel = null; G.tg = new Map(); paint(); }
 }
@@ -2733,11 +2736,8 @@ function playQueuedPremove() {
     toast(t('premoveInvalid'));
     return;
   }
-  boardEl.classList.remove('premove-preview');
-  buildPieces(G.st, false);
   G.premoves.shift(); G.sel = null; G.tg = new Map();
   playMove(m, { premove: true });
-  renderPremoveBoard();
 }
 const Net = {
   es: null, errShown: false, reconnectTimer: null,
@@ -2802,10 +2802,7 @@ const Net = {
     n.both = !!(r.seated.w && r.seated.b); n.present = r.present; n.draw = r.draw;
     applyMoves(r.moves);
     if (r.over && !G.over) endGame(r.result, r.reason);
-    else {
-      playQueuedPremove();
-      renderPremoveBoard();
-    }
+    else playQueuedPremove();
     if (n.both && !n.wasBoth) { n.wasBoth = true; if (n.inviteModal) n.inviteModal.close(); if (!first || !r.moves.length) { Snd.play('notify'); } }
     updateAll();
   },
@@ -2922,7 +2919,8 @@ function settingsModal() {
           onclick: () => { S[key] = !S[key]; b.classList.toggle('on', S[key]); b.setAttribute('aria-checked', String(S[key])); save(); applyTheme(); updateAll(); } });
         return h('div', { class: 'row sp' }, h('span', { text: label }), b);
       };
-      box.append(tg(t('coords'), 'coords'), tg(t('legalMoves'), 'legal'), tg(t('highlights'), 'hl'), tg(t('autoQueen'), 'autoq'), tg(t('vibration'), 'vib'));
+      box.append(tg(t('coords'), 'coords'), tg(t('legalMoves'), 'legal'), tg(t('highlights'), 'hl'),
+        tg(t('premoveHighlights'), 'premoveHighlights'), tg(t('autoQueen'), 'autoq'), tg(t('vibration'), 'vib'));
     };
     draw();
   });
@@ -3467,7 +3465,7 @@ window.I18N = {
     setBoard: 'Board', setPieces: 'Pieces', setSound: 'Sound', setVolume: 'Volume', setBg: 'Appearance',
     bgAuto: 'Auto', bgDark: 'Dark', bgLight: 'Light', setAnim: 'Animations', aOff: 'Off', aFast: 'Fast', aNormal: 'Normal', aSlow: 'Slow',
     setLang: 'Language', langAuto: 'Automatic (device)', coords: 'Coordinates', legalMoves: 'Show legal moves',
-    highlights: 'Highlight last move', autoQueen: 'Always promote to queen', vibration: 'Vibration', test: 'Test',
+    highlights: 'Highlight last move', premoveHighlights: 'Highlight premove squares', autoQueen: 'Always promote to queen', vibration: 'Vibration', test: 'Test',
     promoteTo: 'Promote to', confirmResign: 'Resign this game?', yourTurn: 'Your move',
     b_wood: 'Classic wood', b_emerald: 'Emerald', b_ice: 'Ice', b_night: 'Night', b_violet: 'Violet', b_marble: 'Marble', b_glass: 'Glass', b_neon: 'Neon',
     p_classic: 'Classic', p_flat: 'Flat', p_gold: 'Gold', p_glass: 'Glass', p_neon: 'Neon',
@@ -3499,7 +3497,7 @@ window.I18N = {
     setBoard: 'Tahta', setPieces: 'Taşlar', setSound: 'Ses', setVolume: 'Ses düzeyi', setBg: 'Görünüm',
     bgAuto: 'Otomatik', bgDark: 'Koyu', bgLight: 'Açık', setAnim: 'Animasyonlar', aOff: 'Kapalı', aFast: 'Hızlı', aNormal: 'Normal', aSlow: 'Yavaş',
     setLang: 'Dil', langAuto: 'Otomatik (cihaz dili)', coords: 'Koordinatlar', legalMoves: 'Geçerli hamleleri göster',
-    highlights: 'Son hamleyi vurgula', autoQueen: 'Hep vezir yap', vibration: 'Titreşim', test: 'Dene',
+    highlights: 'Son hamleyi vurgula', premoveHighlights: 'Ön hamle karelerini vurgula', autoQueen: 'Hep vezir yap', vibration: 'Titreşim', test: 'Dene',
     promoteTo: 'Terfi et', confirmResign: 'Oyundan çekilmek istiyor musun?', yourTurn: 'Sıra sende',
     b_wood: 'Klasik ahşap', b_emerald: 'Zümrüt', b_ice: 'Buz', b_night: 'Gece', b_violet: 'Mor', b_marble: 'Mermer', b_glass: 'Cam', b_neon: 'Neon',
     p_classic: 'Klasik', p_flat: 'Düz', p_gold: 'Altın', p_glass: 'Cam', p_neon: 'Neon',
