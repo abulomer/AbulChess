@@ -13,6 +13,19 @@ Terminalde tek komutla başlatın:
 ```
 *(Gerekirse: `chmod +x satranc.sh`)*
 
+Linux x86_64 için [son GitHub Release'den](https://github.com/abulomer/AbulChess/releases/latest) **`AbulChess-x86_64.AppImage`** dosyasını indirin, ardından çalıştırın:
+```bash
+chmod +x AbulChess-x86_64.AppImage
+./AbulChess-x86_64.AppImage
+```
+AppImage; Python, Stockfish ve sesli koç bileşenlerini içerir, ayrıca Python kurmanızı gerektirmez.
+
+AppImage'i kendiniz oluşturmak için:
+```bash
+./packaging/appimage/build.sh
+```
+Derleme sonucu `dist/AbulChess-x86_64.AppImage` oluşturulur. İlk derlemede Python ve AppImage paketleme araçları indirilir; internet bağlantısı gerekir.
+
 ### 📱 Android
 
 GitHub Releases bölümündeki **`AbulChess.apk`** dosyasını indirip Android cihazınıza kurun. İlk açılışta, sunucuyu çalıştıran bilgisayardaki `Yerel ağ` adresini girin (ör. `http://192.168.1.10:8765`). İki cihaz da aynı Wi-Fi ağına bağlı olmalı ve bilgisayardaki güvenlik duvarı bu porta izin vermelidir. Bilgisayar sunucuyu çalıştırmaya devam eder; APK mevcut yerel ağdaki 2 oyunculu oda sistemine istemci olarak bağlanır.
@@ -60,6 +73,13 @@ AbulChess/
 │   │   └── model.onnx
 │   ├── stockfish-linux-x86-64-universal
 │   └── stockfish-windows-x86-64-universal.exe
+│
+├── packaging/
+│   └── appimage/                 # Linux x86_64 AppImage paketleme dosyaları
+│       ├── AbulChess.desktop
+│       ├── AppRun
+│       ├── abulchess.svg
+│       └── build.sh
 │
 ├── server/
 │   └── satranc.py                # Python sunucusu ve web uygulaması

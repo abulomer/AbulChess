@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Satranç Pro
+Comment=Web tabanlı çok oyunculu satranç
+Exec=AppRun
+Icon=abulchess
+Type=Application
+Categories=Game;BoardGame;
+Terminal=true
+StartupNotify=false
